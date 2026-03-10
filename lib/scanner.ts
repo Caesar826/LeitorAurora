@@ -3,7 +3,7 @@ export async function scanDirectory(dirHandle: FileSystemDirectoryHandle): Promi
   
   async function scan(handle: FileSystemDirectoryHandle) {
     try {
-      for await (const entry of handle.values()) {
+      for await (const entry of (handle as any).values()) {
         if (entry.kind === 'file') {
           if (entry.name.toLowerCase().endsWith('.epub') || entry.name.toLowerCase().endsWith('.pdf')) {
             files.push(entry as FileSystemFileHandle);

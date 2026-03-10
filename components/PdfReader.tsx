@@ -1,13 +1,14 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Document, Page, pdfjs } from 'react-pdf';
-import 'react-pdf/dist/esm/Page/AnnotationLayer.css';
-import 'react-pdf/dist/esm/Page/TextLayer.css';
+import 'react-pdf/dist/Page/AnnotationLayer.css';
+import 'react-pdf/dist/Page/TextLayer.css';
 import { initDB, Annotation } from '@/lib/db';
 import { List, ChevronLeft, ChevronRight, X, MessageSquare, ZoomIn, ZoomOut } from 'lucide-react';
 
-pdfjs.GlobalWorkerOptions.workerSrc = `//unpkg.com/pdfjs-dist@${pdfjs.version}/build/pdf.worker.min.mjs`;
+// Use a local worker or a reliable CDN version that matches the installed pdfjs-dist
+pdfjs.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjs.version}/pdf.worker.min.mjs`;
 
 const COLORS = [
   { id: 'yellow', value: 'rgba(255, 255, 0, 0.4)' },
@@ -30,15 +31,18 @@ export default function PdfReader({ file, bookId }: { file: File; bookId: string
   const [selectedColor, setSelectedColor] = useState(COLORS[0].value);
   const [noteText, setNoteText] = useState('');
 
-  useEffect(() => {
-    loadAnnotations();
-  }, [bookId]);
-
-  async function loadAnnotations() {
+  const loadAnnotations = useCallback(async () => {
     const db = await initDB();
     const all = await db.getAllFromIndex('annotations', 'by-book', bookId);
     setAnnotations(all);
-  }
+  }, [bookId]);
+
+  useEffect(() => {
+    const fetchAnns = async () => {
+      await loadAnnotations();
+    };
+    fetchAnns();
+  }, [loadAnnotations]);
 
   function onDocumentLoadSuccess(pdf: any) {
     setNumPages(pdf.numPages);
@@ -102,8 +106,20 @@ export default function PdfReader({ file, bookId }: { file: File; bookId: string
                 {toc.length > 0 ? toc.map((item, i) => (
                   <li key={i}>
                     <button
-                      onClick={() => {
-                        // Basic TOC navigation
+                      onClick={async () => {
+                        if (item.dest) {
+                          // item.dest can be a page index or a named destination
+                          // For simplicity, we assume it's something we can resolve or just navigate to
+                          // In react-pdf, we usually need to find the page index from the destination
+                          // This is a bit complex without the full PDF document object here, 
+                          // but we can try to use the page number if provided in the item
+                          if (typeof item.pageIndex === 'number') {
+                            setPageNumber(item.pageIndex + 1);
+                          } else if (typeof item.pageNumber === 'number') {
+                            setPageNumber(item.pageNumber);
+                          }
+                        }
+                        if (window.innerWidth < 768) setShowToc(false);
                       }}
                       className="text-left text-sm text-stone-700 hover:text-stone-900 w-full"
                     >
@@ -123,7 +139,7 @@ export default function PdfReader({ file, bookId }: { file: File; bookId: string
                       <div className="w-4 h-4 rounded-full" style={{ backgroundColor: ann.color }} />
                       <span className="text-xs text-stone-500 font-mono">Pág {ann.pageIndex}</span>
                     </div>
-                    <p className="text-sm italic text-stone-600 mb-2">"{ann.text}"</p>
+                    <p className="text-sm italic text-stone-600 mb-2">&ldquo;{ann.text}&rdquo;</p>
                     {ann.note && <p className="text-sm text-stone-800 font-medium">{ann.note}</p>}
                     <button 
                       onClick={() => {

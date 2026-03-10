@@ -23,7 +23,7 @@ export default function Home() {
 
   async function handleAddFolder() {
     try {
-      const dirHandle = await window.showDirectoryPicker({
+      const dirHandle = await (window as any).showDirectoryPicker({
         mode: 'read',
       });
       

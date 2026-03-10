@@ -27,9 +27,9 @@ export default function ReadPage({ params }: { params: Promise<{ id: string }> }
         setBook(b);
 
         // Request permission if needed
-        const options = { mode: 'read' as FileSystemPermissionMode };
-        if ((await b.handle.queryPermission(options)) !== 'granted') {
-          const permission = await b.handle.requestPermission(options);
+        const options = { mode: 'read' as any };
+        if ((await (b.handle as any).queryPermission(options)) !== 'granted') {
+          const permission = await (b.handle as any).requestPermission(options);
           if (permission !== 'granted') {
             setError('Permissão negada para acessar o arquivo');
             return;

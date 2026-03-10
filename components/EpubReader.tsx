@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, useCallback } from 'react';
 import ePub, { Book as EpubBook, Rendition } from 'epubjs';
 import { initDB, Annotation } from '@/lib/db';
 import { List, ChevronLeft, ChevronRight, X, MessageSquare } from 'lucide-react';
@@ -26,13 +26,30 @@ export default function EpubReader({ file, bookId }: { file: File; bookId: strin
   const [selectedColor, setSelectedColor] = useState(COLORS[0].value);
   const [noteText, setNoteText] = useState('');
 
+  const loadAnnotations = useCallback(async (r: Rendition) => {
+    const db = await initDB();
+    const all = await db.getAllFromIndex('annotations', 'by-book', bookId);
+    setAnnotations(all);
+    
+    all.forEach(ann => {
+      if (ann.cfiRange) {
+        r.annotations.highlight(ann.cfiRange, {}, (e: Event) => {
+          console.log('Clicked highlight', ann);
+        }, '', { fill: ann.color });
+      }
+    });
+  }, [bookId]);
+
   useEffect(() => {
     let isMounted = true;
+    let currentBook: EpubBook | null = null;
+
     const reader = new FileReader();
     reader.onload = (e) => {
       if (!isMounted || !viewerRef.current) return;
       const bookData = e.target?.result as ArrayBuffer;
       const newBook = ePub(bookData);
+      currentBook = newBook;
       setBook(newBook);
 
       const newRendition = newBook.renderTo(viewerRef.current, {
@@ -58,7 +75,7 @@ export default function EpubReader({ file, bookId }: { file: File; bookId: strin
 
       loadAnnotations(newRendition);
 
-      newRendition.on('selected', (cfiRange: string, contents: any) => {
+      newRendition.on('selected', (cfiRange: string) => {
         const range = newRendition.getRange(cfiRange);
         const rect = range.getBoundingClientRect();
         const text = newRendition.getRange(cfiRange).toString();
@@ -74,25 +91,11 @@ export default function EpubReader({ file, bookId }: { file: File; bookId: strin
 
     return () => {
       isMounted = false;
-      if (book) {
-        book.destroy();
+      if (currentBook) {
+        currentBook.destroy();
       }
     };
-  }, [file]);
-
-  async function loadAnnotations(r: Rendition) {
-    const db = await initDB();
-    const all = await db.getAllFromIndex('annotations', 'by-book', bookId);
-    setAnnotations(all);
-    
-    all.forEach(ann => {
-      if (ann.cfiRange) {
-        r.annotations.highlight(ann.cfiRange, {}, (e: Event) => {
-          console.log('Clicked highlight', ann);
-        }, '', { fill: ann.color });
-      }
-    });
-  }
+  }, [file, loadAnnotations]);
 
   async function handleSaveHighlight() {
     if (!selection || !rendition) return;
@@ -150,7 +153,7 @@ export default function EpubReader({ file, bookId }: { file: File; bookId: strin
                 {annotations.map(ann => (
                   <div key={ann.id} className="p-3 bg-stone-50 rounded-lg border border-stone-100">
                     <div className="w-4 h-4 rounded-full mb-2" style={{ backgroundColor: ann.color }} />
-                    <p className="text-sm italic text-stone-600 mb-2">"{ann.text}"</p>
+                    <p className="text-sm italic text-stone-600 mb-2">&ldquo;{ann.text}&rdquo;</p>
                     {ann.note && <p className="text-sm text-stone-800 font-medium">{ann.note}</p>}
                     <button 
                       onClick={() => {
