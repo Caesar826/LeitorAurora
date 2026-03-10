@@ -1,0 +1,5 @@
+{
+  "name": "Minha Estante",
+  "description": "Um leitor de ebooks (PDF e epub) com suporte a navegação por sumário, notas, destaques e uma estante virtual que analisa pastas do dispositivo.",
+  "requestFramePermissions": []
+}
